@@ -1,0 +1,34 @@
+# Dados brutos da competição (baixados do Kaggle, não versionados)
+data/*.nc
+data/*.csv
+data/*.zip
+!data/.gitkeep
+
+# Modelos treinados e checkpoints (podem ser grandes)
+models/*
+!models/.gitkeep
+
+# Saídas intermediárias (previsões, plots, logs)
+outputs/*
+!outputs/.gitkeep
+
+# Submissões geradas (mantemos só o que quisermos versionar manualmente)
+submissions/*.csv
+!submissions/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# Ambiente / segredos
+.env
+kaggle.json
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/
