@@ -28,6 +28,11 @@ def rmse(pred, true):
     return float(np.sqrt(np.mean((pred[mask] - true[mask]) ** 2)))
 
 
+def prever(model, X, num_iteration=None):
+    """Previsao com clip em 0: precipitacao nunca e negativa."""
+    return np.clip(model.predict(X, num_iteration=num_iteration), 0, None)
+
+
 def main():
     alvo_treino = xr.open_dataset(f"{DATA}/treino_tp_alvo.nc").tp_alvo.sel(
         time=slice(None, "2016-12-01")
@@ -82,7 +87,7 @@ def main():
         callbacks=[lgb.early_stopping(50), lgb.log_evaluation(50)],
     )
 
-    pred_val = model.predict(X_val, num_iteration=model.best_iteration)
+    pred_val = prever(model, X_val, num_iteration=model.best_iteration)
     score = rmse(pred_val, y_val)
     print(f"\nRMSE Modelo 1 (LightGBM) no holdout 2017-2022: {score:.4f} mm/dia")
     print(f"RMSE climatologia no mesmo holdout: 2.3597 mm/dia (referencia anterior)")
