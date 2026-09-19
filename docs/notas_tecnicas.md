@@ -150,3 +150,40 @@ histórica de forma consistente").
 - O leaderboard mostra sempre a **melhor** submissão do time, não a
   mais recente — uma submissão pior não piora a posição, só "gasta"
   uma tentativa do dia.
+
+## 12. Metodologia para comparar os 3 casos (recursiva / âncora / sem P)
+
+**Hiperparâmetros fixos entre os casos.** Para isolar o efeito da
+estratégia de tratamento do `P` (a variável que estamos de fato
+comparando), os três casos usam os mesmos hiperparâmetros do Modelo 1
+atual na primeira rodada — é um experimento controlado: muda-se uma
+coisa por vez. Ajuste fino de hiperparâmetros fica para depois, só no
+design vencedor (roadmap item 3).
+
+**Qual caso a competição sugere de fato?** O exemplo de código do
+enunciado usa `P` como entrada, mas isso por si só não distingue entre
+Caso 1 (recursiva) e Caso 2 (âncora estática). O indício mais forte
+está na estrutura do `teste_features.nc`: a organização incluiu um
+campo `lag_meses` explícito junto com `tp_ultima_obs` fixo. Recursão
+pura não precisaria de um contador de defasagem — ela simplesmente
+realimenta a última previsão. A presença de `lag_meses` sugere que o
+**Caso 2 é o caminho estruturalmente suportado** pelos arquivos
+distribuídos; o Caso 1 (recursiva) é possível, mas exigiria construir
+o loop de propagação por conta própria, sem apoio direto dos dados.
+
+**Como testar os três de forma justa.** Os Casos 2 e 3 são previsão
+"de tiro único" (o modelo prevê cada mês do holdout de uma vez, com
+todas as features já prontas). O Caso 1 exige simulação iterativa de
+verdade: prever o mês 1, usar essa previsão como entrada do mês 2, e
+assim por diante. Para comparar com o teste real (sempre um horizonte
+de 24 meses), o correto é simular a recursiva em **janelas rolantes de
+24 meses** dentro do holdout 2017-2022 (múltiplos pontos de partida),
+em vez de uma cadeia contínua de 71 meses — isso mede como o erro
+acumula num horizonte do mesmo tamanho do real. Essa infraestrutura de
+janelas rolantes também resolve o item 2 do roadmap (validação mais
+robusta), então os dois trabalhos foram unificados.
+
+**Estimativa de esforço** (registrada em 19/09/2026): ~1-2h de
+implementação, ~1-3h de execução total (a maior parte roda em segundo
+plano). O Caso 1 é o mais caro computacionalmente, por precisar de
+previsão passo a passo em vez de em lote.
