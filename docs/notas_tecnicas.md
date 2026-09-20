@@ -254,13 +254,12 @@ programas antes de rodar; cada janela roda como processo Python
 separado (`python src/comparar_casos.py <indice>`) para o sistema
 liberar a memória por completo entre uma janela e outra.
 
-## 13. O que é "modelo", exatamente? (e por que são 2, não 3)
+## 13. Terminologia: "modelo" vs. "caso"
 
-Discussão que vale registrar, porque gerou confusão e a clareza aqui
-ajuda a entender tudo o que vem antes: os termos "modelo" e "caso" **não
-são sinônimos**, e é fácil misturar os dois.
+Os termos "modelo" e "caso" **não são sinônimos** — vale deixar a
+definição explícita, porque o resto do documento depende dela.
 
-**Definição de modelo** (a mesma de uma regressão simples): pensando em
+**Definição de modelo**, análoga a uma regressão simples: pensando em
 `y = ax + b`, o modelo é o par de valores `(a, b)` **estimados a partir
 dos dados de treino**. Uma vez que `a` e `b` estão fixos, usar essa
 mesma equação com valores diferentes de `x` — seja no teste, seja em
