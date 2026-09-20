@@ -310,3 +310,45 @@ Modelo A (23 features, sem P)  ────────────────�
 Modelo B (25 features, com     ──► aplicado com âncora fixa    ──► Caso 2
           p_ancora + lag_meses) ──► aplicado recursivamente     ──► Caso 1
 ```
+
+## 14. Features usadas — o que é cada uma e por que
+
+### Modelo A (23 features — Modelo 1 / Caso 3)
+
+| Feature | O que é | Por que foi incluída |
+|---|---|---|
+| `lat`, `lon` | Coordenadas do pixel | O regime climático muda muito com a localização (Amazônia ≠ Andes ≠ Patagônia). Como o LightGBM é baseado em árvores, ele aprende regras específicas por região através dos *splits* em lat/lon. |
+| `month_sin`, `month_cos` | Seno/cosseno do mês-alvo (M+1) | Chuva tem ciclo sazonal forte. Usar o mês como número puro (1 a 12) faria dezembro e janeiro parecerem "distantes", quando são meses vizinhos no calendário — seno/cosseno evita essa descontinuidade. |
+| `climatologia` | Média histórica de chuva daquele pixel, naquele mês-calendário (calculada só com dados de treino) | Embute o baseline de climatologia como entrada do próprio modelo: em vez de reaprender do zero o padrão espaço-sazonal, o modelo parte dessa âncora e aprende a *corrigir* a partir dela. |
+| 9 variáveis atmosféricas, valor bruto no pixel | t2, cloud_cover, surface_pressure, shum_850, rel_hum_850, temperature_850, geopotential_850, u_850, v_850 | É o "estado atmosférico do mês M" definido pela própria tarefa. Cada uma tem papel físico conhecido na formação de chuva: umidade (o "combustível"), nuvens (indicador de instabilidade), vento (transporte de umidade), temperatura e pressão (dinâmica de frentes/convecção). |
+| As mesmas 9, média numa janela 3×3 ao redor do pixel | — | Um modelo tabular trata cada linha (pixel, mês) como independente, sem enxergar os vizinhos por conta própria. Como chuva depende do que acontece ao redor (umidade sendo transportada, frentes cobrindo vários pixels), a média 3×3 injeta esse contexto espacial manualmente, sem exigir uma arquitetura tipo CNN (reservada para o Modelo 2). |
+
+**Deliberadamente fora**: qualquer feature de precipitação (`tp`,
+`tp_ultima_obs`, `lag_meses`) — ver seções 5 e 12 para a justificativa
+e a confirmação empírica dessa escolha.
+
+### Modelo B (as mesmas 23 + 2)
+
+| Feature extra | Por que |
+|---|---|
+| `p_ancora` | Precipitação de X meses atrás (no treino, testado com X = 1, 12 e 24, imitando os cenários do teste real) |
+| `lag_meses` | Quantos meses de defasagem tem esse `p_ancora` — ensina o modelo a descontar a confiança nesse valor conforme ele envelhece |
+
+Essas duas existem só para viabilizar os Casos 1 e 2 (seção 12) — não
+fazem parte do modelo mantido como abordagem principal.
+
+### Fora do escopo atual (limitações conhecidas)
+
+- **Nenhuma variável atmosférica de mais de 1 mês atrás**: o
+  `teste_features.nc` só garante o mês imediatamente anterior para
+  todos os 24 meses de teste; meses mais antigos não estão disponíveis
+  de forma consistente ali.
+- **Sem termos de interação construídos manualmente** (ex.:
+  lat×climatologia): árvores de decisão capturam interações
+  naturalmente através dos splits sucessivos, diferente de um modelo
+  linear, onde esses termos precisariam ser criados à mão.
+- **Janela de vizinhança fixa em 3×3**: janelas maiores (5×5, 7×7) não
+  foram testadas.
+- **Dados externos (ENSO, elevação do terreno)**: autorizados, ainda
+  não implementados (roadmap, seção 10).
+- **Sem transformação da resposta** (`log1p`): também no roadmap.
