@@ -253,3 +253,61 @@ estão abertos). Resolvido reduzindo a amostra e fechando outros
 programas antes de rodar; cada janela roda como processo Python
 separado (`python src/comparar_casos.py <indice>`) para o sistema
 liberar a memória por completo entre uma janela e outra.
+
+## 13. O que é "modelo", exatamente? (e por que são 2, não 3)
+
+Discussão que vale registrar, porque gerou confusão e a clareza aqui
+ajuda a entender tudo o que vem antes: os termos "modelo" e "caso" **não
+são sinônimos**, e é fácil misturar os dois.
+
+**Definição de modelo** (a mesma de uma regressão simples): pensando em
+`y = ax + b`, o modelo é o par de valores `(a, b)` **estimados a partir
+dos dados de treino**. Uma vez que `a` e `b` estão fixos, usar essa
+mesma equação com valores diferentes de `x` — seja no teste, seja em
+casos novos de verdade — **não cria um modelo novo**. É a mesma lógica,
+só que em maior escala: um modelo é o resultado de combinar
+
+- **Algoritmo** (o método — aqui, sempre LightGBM, nunca mudou)
+- **Hiperparâmetros** (escolhidos antes do treino: `learning_rate`,
+  `num_leaves`, etc. — não vêm dos dados)
+- **Features** (quais colunas compõem X)
+- **Amostra de treino** (quais dados especificamente foram usados)
+
+aplicados uma vez, gerando parâmetros fixos (no LightGBM, a estrutura
+das árvores) — isso é "o modelo". Ele é então reaproveitado tanto para
+validação/teste quanto para aplicação em casos novos, sem que nenhum
+desses quatro ingredientes mude.
+
+**Por que só 2 modelos, não 3**: nos experimentos da seção 12, o
+treinamento (a estimação dos parâmetros) só aconteceu duas vezes:
+
+- **Modelo A** — 23 features, sem `p_ancora`/`lag_meses`. Usado no
+  Caso 3.
+- **Modelo B** — as mesmas 23 features + `p_ancora` + `lag_meses` (25
+  no total), treinado com dado aumentado por vários lags. Usado nos
+  Casos 1 **e** 2.
+
+Caso 1 e Caso 2 chamam exatamente o mesmo objeto treinado
+(`modelo_b.predict(X)`) — o **mesmo formato de X** (as mesmas 25
+colunas), só com **valores diferentes** dentro de duas colunas
+específicas:
+
+| | `p_ancora` | `lag_meses` |
+|---|---|---|
+| Caso 2 (âncora estática) | sempre o último valor real conhecido | cresce 1, 2, 3... 24 |
+| Caso 1 (recursiva) | a própria previsão do mês anterior, atualizada a cada passo | sempre 1 |
+
+Ou seja: Caso 1 vs. Caso 2 é "mesmo modelo, X com valores diferentes em
+2 colunas" (equivalente a testar `y=ax+b` com `x` diferente). Já Caso 3
+usa um **modelo diferente** (Modelo A), com um X de formato
+estruturalmente diferente (23 colunas, sem `p_ancora`/`lag_meses`
+nenhum) — essa comparação é entre dois modelos de fato, não a mesma
+função testada com entradas diferentes.
+
+**Resumo da relação completa**:
+
+```
+Modelo A (23 features, sem P)  ──────────────────► Caso 3
+Modelo B (25 features, com     ──► aplicado com âncora fixa    ──► Caso 2
+          p_ancora + lag_meses) ──► aplicado recursivamente     ──► Caso 1
+```
