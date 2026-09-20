@@ -93,6 +93,15 @@ do futuro pro passado.
 
 ## 7. Modelo 1 — especificação atual
 
+> **Nota de terminologia**: "Modelo 1" e "Caso 3" (seção 5/12) são o
+> **mesmo desenho de modelo** (sem nenhuma feature de precipitação) —
+> só nomeado em momentos diferentes da discussão. "Modelo 1" foi o
+> nome usado antes de formalizarmos os 3 casos; depois, na comparação
+> da seção 12, esse mesmo desenho foi rotulado "Caso 3". São a mesma
+> ideia, mas **treinados/validados em experimentos diferentes** (ver
+> seção 8), por isso os números de RMSE não são idênticos entre um e
+> outro, embora sejam próximos.
+
 - **Algoritmo**: LightGBM (gradient boosting de árvores), objetivo de
   regressão (L2), alinhado com a métrica RMSE da competição.
 - **Features (23)**: lat, lon, seno/cosseno do mês-alvo, climatologia do
@@ -110,18 +119,43 @@ do futuro pro passado.
 
 ## 8. Resultados até agora
 
-| Modelo | RMSE holdout (2017-2022) |
+Dois experimentos distintos, nessa ordem cronológica — os dois usam o
+mesmo desenho de modelo "sem P" (ver nota da seção 7), mas com
+esquemas de validação diferentes:
+
+**Experimento 1 — holdout único** (1940-2016 treino, 2017-2022
+validação, 20.000 pixels de treino, grade inteira na validação):
+
+| Modelo | RMSE |
 |---|---|
 | Climatologia (média histórica por pixel/mês) | 2,3597 mm/dia |
-| Modelo 1 (LightGBM, sem features de precipitação) | **1,9102 mm/dia** |
+| Modelo 1 (LightGBM, sem features de precipitação) | 1,9102 mm/dia |
 
-Melhora relativa de ~19% sobre a climatologia, cumprindo o critério
-explícito da competição ("um bom modelo precisa superar a média
-histórica de forma consistente").
+**Experimento 2 — walk-forward, 3 janelas** (seção 12; mesmo desenho,
+rotulado "Caso 3" na comparação com as estratégias de precipitação;
+8.000 pixels de treino por limite de memória):
+
+| Janela | RMSE (Caso 3 = mesmo desenho do Modelo 1) |
+|---|---|
+| 2015-2016 | 1,9600 |
+| 2017-2018 | 1,9396 |
+| 2019-2020 | 1,9118 |
+| **Média** | **1,9371** |
+
+Os dois experimentos concordam: o modelo sem features de precipitação
+fica consistentemente na faixa de **1,91 a 1,96 mm/dia**, contra 2,36
+da climatologia — uma melhora relativa de ~17-19%, cumprindo o
+critério explícito da competição ("um bom modelo precisa superar a
+média histórica de forma consistente"). O Experimento 2 é a evidência
+mais robusta (3 janelas independentes, não 1 só), e também mostrou que
+essa abordagem supera as alternativas com features de precipitação
+(seção 12).
 
 ## 9. Limitações conhecidas (honestas)
 
-1. Holdout único — sem intervalo de confiança da estimativa de RMSE.
+1. ~~Holdout único~~ — parcialmente resolvido pelo Experimento 2 (seção
+   8), com 3 janelas walk-forward. Ainda não temos um intervalo de
+   confiança formal, só a variação observada entre as 3 janelas.
 2. Hiperparâmetros não otimizados sistematicamente.
 3. Treino em subamostra de pixels — efeito da grade inteira não testado.
 4. Sem transformação da resposta (`log1p`) apesar da assimetria da chuva.
