@@ -98,3 +98,82 @@ def construir_dataset(
     y = y_full[:, pixel_idx].reshape(-1)
 
     return X, y, feature_names
+
+
+def construir_dataset_ancora_treino(
+    time_slice: slice,
+    pixel_idx: np.ndarray,
+    clim: xr.DataArray,
+    lags: list[int],
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """
+    Treino do "Modelo B": features base (construir_dataset) + p_ancora e
+    lag_meses. Para cada mes-alvo, replica uma linha por valor em `lags`,
+    usando tp observado `lag` meses antes do mes-alvo como p_ancora. Isso
+    ensina o modelo a modular a confianca no p_ancora conforme lag_meses
+    cresce -- a mesma situacao real do periodo de teste (Casos 1 e 2
+    reaproveitam este mesmo modelo, diferindo so em como aplicam
+    p_ancora/lag_meses na validacao/teste).
+    """
+    X_base, y, feat_base = construir_dataset(time_slice, pixel_idx, clim)
+    n_sub = len(pixel_idx)
+    n_time = X_base.shape[0] // n_sub
+
+    tp_full = xr.open_dataset(f"{DATA}/treino_tp.nc").tp
+    tp_values = tp_full.values.astype(np.float32).reshape(tp_full.shape[0], -1)
+    alvo_time = xr.open_dataset(f"{DATA}/treino_tp_alvo.nc").tp_alvo.sel(time=time_slice).time.values
+    start_idx = tp_full.get_index("time").get_loc(alvo_time[0])
+
+    blocos_X, blocos_y = [], []
+    for L in lags:
+        i_local = np.arange(n_time)
+        anchor_abs = start_idx + i_local + 1 - L
+        valido = anchor_abs >= 0
+        i_validos = i_local[valido]
+        if len(i_validos) == 0:
+            continue
+
+        p_ancora = tp_values[anchor_abs[valido]][:, pixel_idx].reshape(-1)
+        lag_col = np.full(len(i_validos) * n_sub, L, dtype=np.float32)
+
+        linhas = np.concatenate([
+            np.arange(i * n_sub, (i + 1) * n_sub) for i in i_validos
+        ])
+        X_L = np.column_stack([X_base[linhas], p_ancora, lag_col]).astype(np.float32)
+        y_L = y[linhas]
+
+        blocos_X.append(X_L)
+        blocos_y.append(y_L)
+
+    X = np.concatenate(blocos_X, axis=0)
+    y_out = np.concatenate(blocos_y, axis=0)
+    feature_names = feat_base + ["p_ancora", "lag_meses"]
+    return X, y_out, feature_names
+
+
+def adicionar_ancora_janela_fixa(
+    X_base: np.ndarray,
+    n_pix: int,
+    p_ancora_fixo: np.ndarray,
+) -> np.ndarray:
+    """
+    Caso 2 (ancora estatica decaindo): anexa p_ancora fixo (repetido em
+    todos os meses da janela) e lag_meses crescente (1, 2, 3, ...).
+    """
+    n_time = X_base.shape[0] // n_pix
+    lag_meses = np.repeat(np.arange(1, n_time + 1, dtype=np.float32), n_pix)
+    p_ancora_col = np.tile(p_ancora_fixo, n_time)
+    return np.column_stack([X_base, p_ancora_col, lag_meses]).astype(np.float32)
+
+
+def adicionar_ancora_passo_recursivo(
+    X_base: np.ndarray,
+    p_ancora_atual: np.ndarray,
+) -> np.ndarray:
+    """
+    Caso 1 (recursiva): um unico mes por chamada. lag_meses sempre 1,
+    porque do ponto de vista do modelo o "ultimo observado" e sempre a
+    previsao do passo anterior, tratada como se fosse fresca.
+    """
+    lag_meses = np.ones(X_base.shape[0], dtype=np.float32)
+    return np.column_stack([X_base, p_ancora_atual, lag_meses]).astype(np.float32)
