@@ -187,3 +187,35 @@ robusta), então os dois trabalhos foram unificados.
 implementação, ~1-3h de execução total (a maior parte roda em segundo
 plano). O Caso 1 é o mais caro computacionalmente, por precisar de
 previsão passo a passo em vez de em lote.
+
+### Resultado (20/09/2026)
+
+Validação walk-forward em 3 janelas de 24 meses (2015-16, 2017-18,
+2019-20), cada uma treinada só com dados anteriores a ela. Modelos A
+(Caso 3) e B (Casos 1 e 2, com `p_ancora`+`lag_meses` treinado com
+aumento de dados em lags 1/12/24 meses) usando os mesmos hiperparâmetros
+do Modelo 1, amostra de 8.000 pixels (Modelo A) e 3.000 pixels (Modelo
+B) por limite de RAM da máquina.
+
+| Janela | Caso 1 (recursiva) | Caso 2 (âncora estática) | Caso 3 (sem P) |
+|---|---|---|---|
+| 2015-2016 | 1,9889 | 2,0281 | **1,9600** |
+| 2017-2018 | **1,9342** | 1,9755 | 1,9396 |
+| 2019-2020 | 1,9397 | 1,9979 | **1,9118** |
+| **Média** | 1,9543 | 2,0005 | **1,9371** |
+
+**Conclusão**: Caso 3 (sem `P`) venceu em 2 das 3 janelas e teve a
+melhor média; Caso 2 (âncora estática) foi o pior nas 3 janelas sem
+exceção; Caso 1 (recursiva) ficou no meio, competitivo mas em média
+atrás do Caso 3. As diferenças são modestas (1,91–2,03), não um
+veredito esmagador, mas consistente nas 3 janelas — confirma
+empiricamente a decisão original de excluir features de precipitação
+do Modelo 1. **Modelo 1 (Caso 3) mantido como abordagem principal.**
+
+Nota metodológica: durante a execução, o processo foi interrompido
+duas vezes por falta de memória (o PC tem 15,3GB de RAM, com pouca
+folga livre quando outros programas — principalmente o navegador —
+estão abertos). Resolvido reduzindo a amostra e fechando outros
+programas antes de rodar; cada janela roda como processo Python
+separado (`python src/comparar_casos.py <indice>`) para o sistema
+liberar a memória por completo entre uma janela e outra.
