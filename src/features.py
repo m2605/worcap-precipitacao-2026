@@ -28,8 +28,18 @@ VARS_ATMOSFERICAS = [
 
 
 def climatologia_alvo(alvo: xr.DataArray) -> xr.DataArray:
-    """Media historica de tp_alvo por mes-calendario e pixel."""
-    return alvo.groupby("time.month").mean("time", skipna=True)
+    """
+    Media historica de tp_alvo por mes-calendario ALVO (M+1) e pixel.
+
+    O indice de tempo de tp_alvo e o mes de OBSERVACAO M (alvo[t] ja
+    guarda o valor de M+1, para alinhar com os arquivos de features --
+    ver construir_dataset). Por isso agrupamos pelo mes M+1, e nao pelo
+    mes M do proprio indice: senao clim.sel(month=X), usado como feature
+    para linhas cujo mes-alvo e X, acaba devolvendo a climatologia de
+    X+1 em vez de X.
+    """
+    mes_alvo = ((alvo["time.month"] % 12) + 1).rename("month")
+    return alvo.groupby(mes_alvo).mean("time", skipna=True)
 
 
 def _neighborhood_mean(arr_txy: np.ndarray) -> np.ndarray:
